@@ -7,20 +7,14 @@ var
   ReadQrEdt : TclEdit;
   LblDisplay:TclLabel;
   IntQROnStartVal:Extended;
-  QrAppType:Integer;//0:qrgenerator 1:Yonetici 2:Normal User
+  QrAppType:Integer;
   QrSecondLimit:Integer;
-  
-  Procedure QRGenOnGetQRCode;
-  begin
-    //QRkodun resim olarak saklanması isteniyorsa yada oluştuğu anda event lazım olursa bu event kullanılır
-    //Clomosy.GlobalBitmapSaveToFile('x:\GlobalBitmap.png');
-  End;
+
   
   Procedure BtnNewQrCodeClick;
   begin
     BtnNewQrCode.Caption := FormatDateTime('yymmdd0hhnnss', Now);
     QRGen.Text := Clomosy.ProjectEncryptAES(BtnNewQrCode.Caption);
-    //BtnNewQrCode.Caption := Clomosy.ProjectEncryptAES(QRGen.Text);
   End;
   Procedure OnQrTimer;
   begin
@@ -54,7 +48,7 @@ var
   Procedure BtnReadQrCodeClick;
   begin
     
-    MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'OnGetQRCode');//runs script after read qr code
+    MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'OnGetQRCode');
   End; 
   Procedure OnQrTimeTimer;
   begin
@@ -87,7 +81,7 @@ begin
   LblDisplay:= MyForm.AddNewLabel(MyForm,'LblDisplay','--');
   LblDisplay.Align := alTop;
   
-  If QrAppType=0 then//QRGenerator ise
+  If QrAppType=0 then
   Begin
     QRGen:= MyForm.AddNewQRCodeGenerator(MyForm,'QRGen','Hello World');
     QRGen.Height := 200;
@@ -98,7 +92,7 @@ begin
     MyForm.AddNewEvent(BtnNewQrCode,tbeOnClick,'BtnNewQrCodeClick');
   End;
   
-  If QrAppType=2 then//QRReader ise Normal User
+  If QrAppType=2 then
   Begin
     BtnReadQrCode:= MyForm.AddNewButton(MyForm,'BtnReadQrCode','Read QRKod');
     BtnReadQrCode.Height := 100;
@@ -116,12 +110,12 @@ begin
   Begin
     MyForm.AddNewEvent(QRGen,tbeOnGetQRCode,'QRGenOnGetQRCode');
     QrTimer:= MyForm.AddNewTimer(MyForm,'QrTimer',1000*QrSecondLimit);
-    QrTimer.Interval := 1000*QrSecondLimit;//10 saniye aralıklarla degisir
+    QrTimer.Interval := 1000*QrSecondLimit;
     QrTimer.Enabled := True;
     MyForm.AddNewEvent(QrTimer,tbeOnTimer,'OnQrTimer');
   
     QrTimeTimer:= MyForm.AddNewTimer(MyForm,'QrTimeTimer',1000);
-    QrTimeTimer.Interval := 1000;//1 saniye aralıklarla sayacı degistirir
+    QrTimeTimer.Interval := 1000;
     QrTimeTimer.Tag := QrSecondLimit;
     QrTimeTimer.Enabled := True;
     MyForm.AddNewEvent(QrTimeTimer,tbeOnTimer,'OnQrTimeTimer');
