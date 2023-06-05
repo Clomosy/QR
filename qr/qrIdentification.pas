@@ -38,27 +38,21 @@ var
   begin
     If ReadQrEdt.Text='' Then Exit;
     s := FormatDateTime('yymmdd0hhnnss', Now);
-    IntQROnStartVal := StrToFloat(s);//giriş/çıkış yapan kullanıcının işleme başlarkenki telefon saati
-    //ShowMessage(IntQROnStartVal);
+    IntQROnStartVal := StrToFloat(s);
     Try
       s := Clomosy.ProjectDecryptAES(ReadQrEdt.Text);
       ReadQrEdt.Text := s;
-      IntQRVal := StrToFloat(s); //okutulan QR code içinden alınan zaman bilgisi
+      IntQRVal := StrToFloat(s); 
     Except 
       IntQRVal :=0;
     end;
-    //ikisi arasındaki fark QrSecondLimit saniyeden çok olamaz çünkü timer interval degeri ona göre ayarlandı
-    //49>59
     If (IntQROnStartVal-QrSecondLimit)<= IntQRVal Then 
     Begin
-      //ShowMessage('QRCode Geçerli');
       SaveRecordThread;
-    End Else ShowMessage('Geçersiz QR Code. '+IntToStr(QrSecondLimit)+' sn. içinde işlemi tamamlayınız. Tekrar Deneyin.!');
-    //ShowMessage(s);
+    End Else ShowMessage('Invalid QR Code. '+IntToStr(QrSecondLimit)+' sec. Complete the process in Try again.!');
   End;
   Procedure BtnReadQrCodeClick;
   begin
-    //MyForm.CallBarcodeReader(ReadQrEdt);
     
     MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'OnGetQRCode');//runs script after read qr code
   End; 
@@ -70,13 +64,13 @@ var
 begin
   
   
-  QrAppType := 0;//0:qrgenerator 1:Yonetici 2:Normal User
-  QrSecondLimit := 10;//tum kontroller 10 sn gore yapılır. sadece buradan deger degistirilerek parametre olur
+  QrAppType := 0;
+  QrSecondLimit := 10;
   
-  If Clomosy.PlatformIsMobile Then QrAppType := 2;//0:qrgenerator 1:Yonetici 2:Normal User
+  If Clomosy.PlatformIsMobile Then QrAppType := 2;
   
-  If Not Clomosy.PlatformIsMobile Then  //win üzeirinde açılı olan kullanıcı members listesini görsün
-    QrAppType := 1;//0:qrgenerator 1:Yonetici 2:Normal User
+  If Not Clomosy.PlatformIsMobile Then  
+    QrAppType := 1;
   IF QrAppType=1 Then 
   Begin
     Clomosy.OpenForm(ftMembers,fdtsingle,froReadOnly, ffoNoFilter);
@@ -86,11 +80,8 @@ begin
   if Clomosy.AppUserGUID ='6MFW419738' then
     QrAppType:=1;
   
-  If Clomosy.AppUserProfile=1 Then  //proje yönetici ise generator yapıyoruz
+  If Clomosy.AppUserProfile=1 Then  
    QrAppType:=0;
-  //if Clomosy.AppUserGUID ='NX134L18D9' then //Buradan GUID verip generator yapiyoruz
-   
-  //her 10 sn de ekran QR kodunu degistirir ve istenirse resim olarak saklar
   MyForm := TCLForm.Create(Self);
   
   LblDisplay:= MyForm.AddNewLabel(MyForm,'LblDisplay','--');
@@ -98,24 +89,24 @@ begin
   
   If QrAppType=0 then//QRGenerator ise
   Begin
-    QRGen:= MyForm.AddNewQRCodeGenerator(MyForm,'QRGen','Merhaba Dünya');
+    QRGen:= MyForm.AddNewQRCodeGenerator(MyForm,'QRGen','Hello World');
     QRGen.Height := 200;
     QRGen.Align := alCenter;
     
-    BtnNewQrCode:= MyForm.AddNewButton(MyForm,'BtnNewQrCode','Başlıyor');
+    BtnNewQrCode:= MyForm.AddNewButton(MyForm,'BtnNewQrCode','Starting');
     BtnNewQrCode.Align := alTop;
     MyForm.AddNewEvent(BtnNewQrCode,tbeOnClick,'BtnNewQrCodeClick');
   End;
   
   If QrAppType=2 then//QRReader ise Normal User
   Begin
-    BtnReadQrCode:= MyForm.AddNewButton(MyForm,'BtnReadQrCode','QRKod Oku');
+    BtnReadQrCode:= MyForm.AddNewButton(MyForm,'BtnReadQrCode','Read QRKod');
     BtnReadQrCode.Height := 100;
     BtnReadQrCode.Width := 200;
     BtnReadQrCode.Align := alCenter;
     MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
     
-    ReadQrEdt := MyForm.AddNewEdit(MyForm,'ReadQrEdt','Barkod Okutunuz...');
+    ReadQrEdt := MyForm.AddNewEdit(MyForm,'ReadQrEdt','Read Qr...');
     ReadQrEdt.Align := alBottom;
     ReadQrEdt.ReadOnly := True;
     ReadQrEdt.Visible := False;
