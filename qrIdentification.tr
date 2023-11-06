@@ -1,0 +1,63 @@
+var
+  MyForm:TCLForm;
+  QRGen : TClQRCodeGenerator;
+  BtnNewQrCode:TclButton;
+  BtnReadQrCode:TclButton;
+  ReadQrEdt : TclEdit;
+  QrAppType:Integer;//0:qrgenerator 1:Yonetici 2:Normal User
+
+  void BtnNewQrCodeClick;
+  {
+    QRGen.Text = Clomosy.ProjectEncryptAES(FormatDateTime('yymmdd0hhnnss', Now));
+  }
+  void SaveRecordThread;
+  {
+       Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+ReadQrEdt.Text+'","Thread_Quantity":1}]');
+  }
+  void BtnReadQrCodeClick;
+  {
+       MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'SaveRecordThread');//runs script after read qr code
+  }
+{
+  if (Clomosy.PlatformIsMobile)
+      QrAppType = 2;//0:qrgenerator 1:Yonetici 2:Normal User
+  
+  if(Not Clomosy.PlatformIsMobile)  //win üzeirinde açılı olan kullanıcı members listesini görsün
+    QrAppType = 1;//0:qrgenerator 1:Yonetici 2:Normal User
+  if (QrAppType== 1 ) 
+  {
+    Clomosy.OpenForm(ftMembers,fdtsingle,froReadOnly, ffoNoFilter);
+    Exit;
+  }
+  if (Clomosy.AppUserProfile== 1 )   
+     QrAppType=0;
+     
+  MyForm = TCLForm.Create(Self);
+ 
+  if (QrAppType== 0 )//QRGenerator ise
+  {
+    QRGen= MyForm.AddNewQRCodeGenerator(MyForm,'QRGen','Merhaba Dünya');
+    QRGen.Height = 200;
+    QRGen.Align = alCenter;
+    
+  }
+  
+  if(QrAppType==2)//QRReader ise Normal User
+  {
+    BtnReadQrCode= MyForm.AddNewButton(MyForm,'BtnReadQrCode','QRKod Oku');
+    BtnReadQrCode.Height = 100;
+    BtnReadQrCode.Width = 200;
+    BtnReadQrCode.Align = alCenter;
+    MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
+    
+    ReadQrEdt = MyForm.AddNewEdit(MyForm,'ReadQrEdt','Barkod Okutunuz...');
+    ReadQrEdt.Align = alBottom;
+    ReadQrEdt.ReadOnly = True;
+   ReadQrEdt.Visible = False;
+  }
+  
+  if (QrAppType==0)
+   BtnNewQrCodeClick;
+   
+  MyForm.Run;
+}
