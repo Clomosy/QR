@@ -1,22 +1,85 @@
 var
   MyForm:TCLForm;
+  //YÖNETİCİ EKRANI
+  mainPnl : TclProPanel;
+  timeContainer : TclLayout;
+  CaptionLbl,timeCaptionLbl,timeLbl : TClProLabel;
   QRGen : TClQRCodeGenerator;
-  BtnNewQrCode:TclButton;
-  BtnReadQrCode:TclButton;
+  //KULLANICI EKRANI
+  descriptionLbl : TClProLabel;
+  BtnReadQrCode:TclProButton;
   ReadQrEdt : TclEdit;
-  QrAppType:Integer;//0:qrgenerator 1:Yonetici 2:Normal User
+  QrAppType:Integer;  //0:qrgenerator 1:Yonetici 2:Normal User
+  GetTimer: TClTimer;
 
   void BtnNewQrCodeClick;
   {
-    QRGen.Text = Clomosy.ProjectEncryptAES(FormatDateTime('yymmdd0hhnnss', Now));
+    QRGen.Text =  FormatDateTime('hhnn', Now);
+    timeLbl.Text = FormatDateTime('hh', Now) + ':' +FormatDateTime('nn', Now);
   }
   void SaveRecordThread;
   {
-       Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+ReadQrEdt.Text+'","Thread_Quantity":1}]');
+    if (ReadQrEdt.Text == IntToStr(FormatDateTime('hhnn', Now)))
+    {
+      Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+ReadQrEdt.Text+'","Thread_Quantity":1}]');
+      BtnReadQrCode.Text ='Okutuldu...';
+      descriptionLbl.Text = 'Qr kod okutma işlemi başarılı. Windows ekranına giriş saatiniz eklenmiştir.';
+      clComponent.SetupComponent(descriptionLbl,'{"TextColor":"#12b021"}');
+      BtnReadQrCode.Enabled = False;
+    } else
+    {
+      ShowMessage('Yanlış! Lütfen, tekrar deneyiniz..');
+    }
   }
   void BtnReadQrCodeClick;
   {
-       MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'SaveRecordThread');//runs script after read qr code
+    MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'SaveRecordThread');//runs script after read qr code
+  }
+  void timerShow;
+  {
+    BtnNewQrCodeClick;
+  }
+  void adminScreen;
+  {
+    timeContainer = MyForm.AddNewLayout(mainPnl,'timeContainer');
+    timeContainer.Align=AlTop;
+    timeContainer.Height = 50;
+    timeContainer.Margins.Left  = 20;
+    timeContainer.Margins.Top = 50;
+    
+    timeCaptionLbl = MyForm.AddNewProLabel(timeContainer,'timeCaptionLbl','SAAT > ');
+    clComponent.SetupComponent(timeCaptionLbl,'{"Align" : "MostLeft","Width" :90,"TextColor":"#90646D",
+    "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}');
+     
+     timeLbl = MyForm.AddNewProLabel(timeContainer,'timeLbl','--:--');
+    clComponent.SetupComponent(timeLbl,'{"Align" : "Left","Width" :90,"TextColor":"#90646D","MarginLeft":15,
+    "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}');
+    
+    QRGen= MyForm.AddNewQRCodeGenerator(mainPnl,'QRGen','Merhaba Dünya');
+    QRGen.Height = 200;
+    QRGen.Width = 200;
+    QRGen.Align = alCenter;
+    
+    BtnNewQrCodeClick;
+    GetTimer.Enabled  = True;
+    MyForm.AddNewEvent(GetTimer,tbeOnTimer,'timerShow');
+  }
+  void usersScrenn;
+  {
+    
+    descriptionLbl = MyForm.AddNewProLabel(mainPnl,'descriptionLbl','QR Kod tarama için aşağıdaki butona basmalısınız. Ardından qr kodu taratın...');
+    clComponent.SetupComponent(descriptionLbl,'{"Align" : "Top","MarginTop":50,"MarginLeft":20,"MarginRight":20,"Height":10,"TextColor":"#3B599C","TextSize":18,"TextVerticalAlign":"center",
+    "TextHorizontalAlign":"center","AutoSize":"Vertical","BackgroundColor":"null"}');
+    
+    BtnReadQrCode = MyForm.AddNewProButton(mainPnl,'BtnReadQrCode','');
+    clComponent.SetupComponent(BtnReadQrCode,'{"caption":"QRKod Oku...","Align" : "Center","Width" :200,"TextColor":"#3B599C","TextSize":25,
+    "Height":70,"BackgroundColor":"#d1daf0","RoundHeight":15,"RoundWidth":15,"BorderColor":"#3B599C","BorderWidth":3}');
+    MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
+    
+    ReadQrEdt = MyForm.AddNewEdit(mainPnl,'ReadQrEdt','Barkod Okutunuz...');
+    ReadQrEdt.Align = alBottom;
+    ReadQrEdt.ReadOnly = True;
+    ReadQrEdt.Visible = False;
   }
 {
   if (Clomosy.PlatformIsMobile)
@@ -24,40 +87,37 @@ var
   
   if(Not Clomosy.PlatformIsMobile)  //win üzeirinde açılı olan kullanıcı members listesini görsün
     QrAppType = 1;//0:qrgenerator 1:Yonetici 2:Normal User
-  if (QrAppType== 1 ) 
-  {
-    Clomosy.OpenForm(ftMembers,fdtsingle,froReadOnly, ffoNoFilter);
-    Exit;
-  }
+  
   if (Clomosy.AppUserProfile== 1 )   
      QrAppType=0;
      
   MyForm = TCLForm.Create(Self);
+  MyForm.SetFormBGImage('https://clomosy.com/demos/bg4.jpg');
+  GetTimer = MyForm.AddNewTimer(MyForm,'GetTimer',1000);
+  
+  mainPnl=MyForm.AddNewProPanel(MyForm,'mainPnl');
+  clComponent.SetupComponent(mainPnl,'{"Align" : "Client","BackgroundColor":"null"}');
+    
+  CaptionLbl = MyForm.AddNewProLabel(mainPnl,'CaptionLbl','QR PDKS UYGULAMASI');
+  clComponent.SetupComponent(CaptionLbl,'{"Align" : "MostTop","MarginTop":30,
+  "TextColor":"#3B599C","TextSize":30,"TextVerticalAlign":"center","TextHorizontalAlign":"center","TextBold":"yes","AutoSize":"Horizontal"}');
+ 
  
   if (QrAppType== 0 )//QRGenerator ise
   {
-    QRGen= MyForm.AddNewQRCodeGenerator(MyForm,'QRGen','Merhaba Dünya');
-    QRGen.Height = 200;
-    QRGen.Align = alCenter;
-    
+    adminScreen;
+  }
+  
+  if (QrAppType== 1 )  //WINDOWS
+  {
+    Clomosy.OpenForm(ftMembers,fdtsingle,froReadOnly, ffoNoFilter);
+    Exit;
   }
   
   if(QrAppType==2)//QRReader ise Normal User
   {
-    BtnReadQrCode= MyForm.AddNewButton(MyForm,'BtnReadQrCode','QRKod Oku');
-    BtnReadQrCode.Height = 100;
-    BtnReadQrCode.Width = 200;
-    BtnReadQrCode.Align = alCenter;
-    MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
-    
-    ReadQrEdt = MyForm.AddNewEdit(MyForm,'ReadQrEdt','Barkod Okutunuz...');
-    ReadQrEdt.Align = alBottom;
-    ReadQrEdt.ReadOnly = True;
-   ReadQrEdt.Visible = False;
+    usersScrenn;
   }
   
-  if (QrAppType==0)
-   BtnNewQrCodeClick;
-   
   MyForm.Run;
 }
