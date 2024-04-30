@@ -1,5 +1,8 @@
 var
-  MyForm:TCLForm;
+  testCombo : TClComboBox; 
+  MyForm : TclForm;
+  QMemList:TclJSonQuery;
+  QrAppType:Integer;  //0:qrgenerator 1:Yonetici 2:Normal User
   //YÖNETİCİ EKRANI
   mainPnl : TclProPanel;
   timeContainer : TclLayout;
@@ -9,89 +12,335 @@ var
   descriptionLbl : TClProLabel;
   BtnReadQrCode:TclProButton;
   ReadQrEdt : TclEdit;
-  QrAppType:Integer;  //0:qrgenerator 1:Yonetici 2:Normal User
   GetTimer: TClTimer;
-
-  procedure BtnNewQrCodeClick
+  yoneticiTakip : Integer;
+  clQuery:TCLJSONQuery;
+  qryStr:String;
+  //WIN EKRANI
+  refreshBtn : TClProButton;
+  refreshLyt : TclLayout;
+  memberListView : TClProListView;
+  memberDesignerPanel : TClProListViewDesignerPanel;
+  memberName,memberValueDate : TClProLabel;
+  
+  jsonStr:string;
+ 
+procedure PostJSON;
+ var 
+   clomosyQ1:TCLJSONQuery;
+   qryTestStr : String;
+  clQueryTest : TCLJSONQuery;
+ begin
+     try
+                qryTestStr:='SELECT TOP 1 * FROM PrgView_tblProjectThreads where CAST(Thread_Value_Text AS nvarchar(max)) =''T2KJE3BJR3'' ORDER BY Rec_Date DESC ';
+                clQueryTest := Clomosy.DBCloudSQLSelectWith(qryTestStr);
+                ShowMessage(clQueryTest.GetJSONString);
+              except
+              ShowMessage('İnternet bağlantınızı kontrol ediniz...' + #13 + 'Exception Class: '+LastExceptionClassName+' Exception Message: '+LastExceptionMessage);
+              end;
+end;
+procedure ComboSelected;
+var
+  SelectedValue : Integer;
+begin
+  if testCombo.ItemIndex = -1 then
   begin
-    QRGen.Text :=  FormatDateTime('hhnn', Now);
-    timeLbl.Text := FormatDateTime('hh', Now) + ':' +FormatDateTime('nn', Now);
-  end;
-  procedure SaveRecordThread
+    ShowMessage('Proje listesinde üye yok!');
+  end; 
+  else
   begin
-    if ReadQrEdt.Text = IntToStr(FormatDateTime('hhnn', Now)) then
+    if testCombo.GetValueIndex(testCombo.ItemIndex) = '00' then
     begin
-      Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+ReadQrEdt.Text+'","Thread_Quantity":1}]');
-      BtnReadQrCode.Text :='Okutuldu...';
-      descriptionLbl.Text := 'Qr kod okutma işlemi başarılı. Windows ekranına giriş saatiniz eklenmiştir.';
-      clComponent.SetupComponent(descriptionLbl,'{"TextColor":"#12b021"}');
-      BtnReadQrCode.Enabled := False;
-    end; else
-    begin
-      ShowMessage('Yanlış! Lütfen, tekrar deneyiniz..');
+      ShowMessage('Lütfen bir ad seçiniz.');
     end;
   end;
-  procedure BtnReadQrCodeClick
+end;
+procedure addComboBox;
+begin
+  try
+    QMemList := TCLJSONQuery.Create(nil);
+    QMemList := Clomosy.DBCloudQueryWith(ftMembers,'','ISNULL(PMembers.Rec_Deleted,0)=0');
+    testCombo.AddItem('Adınızı Seçiniz..','00');
+    with QMemList do
+     begin
+       if Found then
+       begin
+         First;
+         while not EOF do
+         begin
+            testCombo.AddItem(FieldByName('Member_Name').AsString,FieldByName('Member_GUID').AsString);
+            MyForm.AddNewEvent(testCombo,tbeOnChange,'ComboSelected');
+            Next;
+         end;
+       end;
+     end;
+  except
+    ShowMessage('İnternet bağlantınızı kontrol ediniz...' + #13 + 'Exception Class: '+LastExceptionClassName+' Exception Message: '+LastExceptionMessage);
+  end;
+end;
+  procedure BtnNewQrCodeClick;
+  begin
+    QRGen.Text :=  FormatDateTime('hhnn', Now);
+    timeLbl.Text := FormatDateTime('hh', Now)+ ':' +FormatDateTime('nn', Now);
+  end;
+  procedure SaveRecordThread;
+  begin
+    if ReadQrEdt.Text = FormatDateTime('hhnn', Now) then
+    begin
+       if yoneticiTakip = 1 then
+       begin
+         if testCombo.GetValueIndex(testCombo.ItemIndex) = '00' then
+         begin
+            ShowMessage('Lütfen bir kullanıcı seçiniz.');
+          end;
+          else
+          begin
+          ShowMessage('Yönetici hesabı : kayıt gerçekleşti.');
+          
+          qryStr:='SELECT TOP 1 * FROM PrgView_tblProjectThreads where CAST(Thread_Value_Text AS nvarchar(max)) ='+QuotedStr(testCombo.GetValueIndex(testCombo.ItemIndex))+' ORDER BY Rec_Date DESC '; // TOP => İLK KAYIT GELİYOR   ORDER BY Rec_Date DESC LIMIT 1
+
+          try
+            clQuery := Clomosy.DBCloudSQLSelectWith(qryStr);
+            with clQuery do
+            begin
+              if Found then
+              begin
+                Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_GUID":"'+FieldByName('Thread_GUID').AsString+'","Thread_Value_Str":"'+testCombo.Items[testCombo.ItemIndex]+'|'+FormatDateTime('yyyy-mm-dd/hh:nn', Now)+'","Thread_Quantity":1,"Thread_Value_Text":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'"}]'); //,"Member_Name":"'+testCombo.Items[testCombo.ItemIndex]+'","Thread_Member_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'","Thread_RecMember_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'","Thread_RecUpMember_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'"
+                
+              end;
+              else
+              begin
+
+                Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+testCombo.Items[testCombo.ItemIndex]+'|'+FormatDateTime('yyyy-mm-dd/hh:nn', Now)+'","Thread_Quantity":1,"Thread_Value_Text":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'"}]'); //,"Member_Name":"'+testCombo.Items[testCombo.ItemIndex]+'","Thread_Member_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'","Thread_RecMember_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'","Thread_RecUpMember_GUID":"'+testCombo.GetValueIndex(testCombo.ItemIndex)+'"
+              end;
+            end;
+          except
+            ShowMessage('İnternet bağlantınızı kontrol ediniz...' + #13 + 'Exception Class: '+LastExceptionClassName+' Exception Message: '+LastExceptionMessage);
+          end;
+          end;
+         
+       end;
+       else
+       begin
+          Clomosy.DBCloudPostJSON(ftThreads,'[{"Thread_Value_Str":"'+Clomosy.AppUserDisplayName+'|'+FormatDateTime('yyyy-mm-dd/hh:nn', Now)+'","Thread_Quantity":1,"Thread_Value_Text":"'+Clomosy.AppUserGUID+'"}]'); //Thread_Member_GUID
+          BtnReadQrCode.Text :='Okutuldu...';
+          descriptionLbl.Text := 'Qr kod okutma işlemi başarılı. Windows ekranına giriş saatiniz eklenmiştir.';
+          clComponent.SetupComponent(descriptionLbl,'{"TextColor":"#12b021"}');
+          BtnReadQrCode.Enabled := False;
+       end;
+    end; 
+    else
+      ShowMessage('Yanlış! Lütfen, tekrar deneyiniz..');
+  end;
+  procedure BtnReadQrCodeClick;
   begin
     MyForm.CallBarcodeReaderWithScript(ReadQrEdt,'SaveRecordThread');//runs script after read qr code
   end;
-  procedure timerShow
+  procedure timerShow;
   begin
     BtnNewQrCodeClick;
   end;
-  procedure adminScreen
+
+procedure adminScreen;
   begin
-    timeContainer := MyForm.AddNewLayout(mainPnl,'timeContainer');
-    timeContainer.Align:=AlTop;
-    timeContainer.Height := 50;
-    timeContainer.Margins.Left  := 20;
-    timeContainer.Margins.Top := 50;
-    
-    timeCaptionLbl := MyForm.AddNewProLabel(timeContainer,'timeCaptionLbl','SAAT > ');
-    clComponent.SetupComponent(timeCaptionLbl,'{"Align" : "MostLeft","Width" :90,"TextColor":"#90646D",
-    "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}');
-     
-     timeLbl := MyForm.AddNewProLabel(timeContainer,'timeLbl','--:--');
-    clComponent.SetupComponent(timeLbl,'{"Align" : "Left","Width" :90,"TextColor":"#90646D","MarginLeft":15,
-    "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}');
-    
-    QRGen:= MyForm.AddNewQRCodeGenerator(mainPnl,'QRGen','Merhaba Dünya');
-    QRGen.Height := 200;
-    QRGen.Width := 200;
-    QRGen.Align := alCenter;
-    
+      QRGen:= MyForm.AddNewQRCodeGenerator(mainPnl,'QRGen','Merhaba Dünya');
+      QRGen.Height := 200;
+      QRGen.Width := 200;
+      QRGen.Align := alCenter;
+      QRGen.Visible := False;
+  
+      timeContainer := MyForm.AddNewLayout(mainPnl,'timeContainer');
+      timeContainer.Align:=AlTop;
+      timeContainer.Height := 50;
+      timeContainer.Margins.Left  := 20;
+      timeContainer.Margins.Top := 50;
+      
+      timeCaptionLbl := MyForm.AddNewProLabel(timeContainer,'timeCaptionLbl','SAAT > ');
+      clComponent.SetupComponent(timeCaptionLbl,'{"Align" : "MostLeft","Width" :90,"TextColor":"#90646D",
+      "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}');
+       
+       timeLbl := MyForm.AddNewProLabel(timeContainer,'timeLbl','--:--');
+      clComponent.SetupComponent(timeLbl,'{"Align" : "Left","Width" :90,"TextColor":"#90646D","MarginLeft":15,
+      "TextSize":26,"TextVerticalAlign":"center","TextHorizontalAlign":"left","TextBold":"yes"}'); 
+  
+    if Clomosy.AppUserGUID = 'E517JC367S' then //QR KOD ÜRETİLECEK ALANIN BULUNDUĞU YÖNETİCİ EKRANI
+    begin
+      testCombo := MyForm.AddNewComboBox(mainPnl,'testCombo');
+      testCombo.Align := alTop;
+      testCombo.Width := 150;
+      testCombo.Margins.Top:=10;
+      testCombo.Margins.Left :=50;
+      testCombo.Margins.Right :=50;
+      addComboBox;
+      yoneticiTakip := 1;
+      BtnReadQrCode.Visible := True;
+      
+    end;
+    else
+      QRGen.Visible := True;
+
     BtnNewQrCodeClick;
     GetTimer.Enabled  := True;
     MyForm.AddNewEvent(GetTimer,tbeOnTimer,'timerShow');
   end;
-  procedure usersScrenn
+  procedure usersScrenn;
   begin
-    
     descriptionLbl := MyForm.AddNewProLabel(mainPnl,'descriptionLbl','QR Kod tarama için aşağıdaki butona basmalısınız. Ardından qr kodu taratın...');
     clComponent.SetupComponent(descriptionLbl,'{"Align" : "Top","MarginTop":50,"MarginLeft":20,"MarginRight":20,"Height":10,"TextColor":"#3B599C","TextSize":18,"TextVerticalAlign":"center",
     "TextHorizontalAlign":"center","AutoSize":"Vertical","BackgroundColor":"null"}');
     
-    BtnReadQrCode := MyForm.AddNewProButton(mainPnl,'BtnReadQrCode','');
-    clComponent.SetupComponent(BtnReadQrCode,'{"caption":"QRKod Oku...","Align" : "Center","Width" :200,"TextColor":"#3B599C","TextSize":25,
-    "Height":70,"BackgroundColor":"#d1daf0","RoundHeight":15,"RoundWidth":15,"BorderColor":"#3B599C","BorderWidth":3}');
-    MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
-    
-    ReadQrEdt := MyForm.AddNewEdit(mainPnl,'ReadQrEdt','Barkod Okutunuz...');
-    ReadQrEdt.Align := alBottom;
-    ReadQrEdt.ReadOnly := True;
-    ReadQrEdt.Visible := False;
+    BtnReadQrCode.Visible := True;
   end;
+procedure refreshMemberTable;
+var
+  qryPlayersData:TCLJSONQuery;
+begin
+    try
+      qryPlayersData := TCLJSONQuery.Create(nil);
+      qryPlayersData := Clomosy.ClDataSetFromJSON(jsonStr);
+      with qryPlayersData do
+       begin
+       memberListView.clLoadProListViewDataFromDataset(qryPlayersData);
+       end;
+    except
+      ShowMessage('İnternet bağlantınızı kontrol ediniz...' + #13 + 'Exception Class: '+LastExceptionClassName+' refreshMemberTable Exception Message: '+LastExceptionMessage);
+    end;
+end;
+procedure AddDataToListview;
+var
+  membersListQuery: TClJSONQuery;
+  qryTestStr,originalDateString,formattedDateString: String;
+  clQueryTest: TCLJSONQuery;
+  isFirstRecord: Boolean;
+  originalDate: TclDateTime;
+  list:TclStringList;
+  str, membernameTxt,memberTimeTxt:String;
+   
+begin
+  jsonStr := '';
+  jsonStr := '[';
+  isFirstRecord := True;
+  try
+    membersListQuery := Clomosy.DBCloudQueryWith(ftMembers, '', 'ISNULL(PMembers.Rec_Deleted,0)=0');
+    try
+      with membersListQuery do
+      begin
+        First;
+
+        while not Eof do
+        begin
+          qryTestStr := 'SELECT TOP 1 Thread_Value_Str as memberName, Thread_VAT_Value as memberValueDate FROM PrgView_tblProjectThreads where CAST(Thread_Value_Text AS nvarchar(max)) =' + QuotedStr(FieldByName('Member_GUID').AsString) + ' ORDER BY Rec_Date DESC ';
+          clQueryTest := Clomosy.DBCloudSQLSelectWith(qryTestStr);
+          try
+            with clQueryTest do
+            begin
+              if Found then
+              begin
+                // İlk kayıt için virgül eklenmemesi için kontrol
+                if not isFirstRecord then
+                  jsonStr := jsonStr + ',';
+                  
+                  str := FieldByName('memberName').AsString;
+                  list := Clomosy.StringListNew;
+                  
+                  List.StrictDelimiter :=True;
+                  List.Delimiter := '|';
+                  List.DelimitedText := str;
+                  
+                  membernameTxt := Clomosy.StringListItemString(List,0);
+                  memberTimeTxt := Clomosy.StringListItemString(List,1);
+                jsonStr := jsonStr + '{"memberName":"' + membernameTxt + '","memberValueDate":"' +memberTimeTxt+ '"}'; //DateTimeToStr(FormatDateTime('yyyy-mm-dd hh:nn',StrToDateTime(FieldByName('memberValueDate').AsString)))
+
+                isFirstRecord := False;
+                str := '';
+                List.Free;
+              end;
+            end;
+          finally
+            clQueryTest.Close;
+            clQueryTest.Free;
+          end;
+          Next;
+        end;
+      end;
+    
+    except
+     ShowMessage('İnternet bağlantınızı kontrol ediniz...' + #13 + 'Exception Class: '+LastExceptionClassName+' AddDataToListview Exception Message: '+LastExceptionMessage);
+    end;
+
+  finally
+    membersListQuery.Close;
+    membersListQuery.Free;
+  end;
+  jsonStr := jsonStr +']';
+  refreshMemberTable;
+end;
+ 
+ procedure CreateMembersNameAndDate;
+ begin
+    memberName := MyForm.AddNewProLabel(memberDesignerPanel,'memberName','test');
+    clComponent.SetupComponent(memberName,'{"MarginTop":10,"MarginLeft":10,"MarginBottom":10,"TextSize":18,"Width":60,"Align":"MostLeft"}');
+    memberDesignerPanel.AddPanelObject(memberName,clCaption);
+    memberName.Properties.AutoSize := True;
+    
+    memberValueDate := MyForm.AddNewProLabel(memberDesignerPanel,'memberValueDate','test');
+    clComponent.SetupComponent(memberValueDate,'{"MarginTop":10,"MarginLeft":10,"MarginRight":10,"MarginBottom":10 ,"TextSize":18,
+    "TextVerticalAlign":"center", "TextHorizontalAlign":"center","Height":20,"Align" : "MostRight","Width":60}');
+    memberDesignerPanel.AddPanelObject(memberValueDate,clText);
+    memberValueDate.Properties.AutoSize := True;
+ end;
+  
+  procedure CreateDesignerPanel;
+ begin
+     memberDesignerPanel := MyForm.AddNewProListViewDesignerPanel(memberListView,'memberDesignerPanel'); 
+     clComponent.SetupComponent(memberDesignerPanel,'{"Align":"Top","Height":70,"BackgroundColor":"#f5f1e9","BorderColor":"#3B599C","BorderWidth":2,"RoundHeight":20,"RoundWidth":20}');
+     memberListView.SetDesignerPanel(memberDesignerPanel);
+ end;
+  
+  procedure CreateListView;
+ begin
+    memberListView := MyForm.AddNewProListView(mainPnl,'memberListView');
+    memberListView.Properties.ItemSpace := 10;
+    clComponent.SetupComponent(memberListView,'{"Height" : 150,"Align":"Client","MarginBottom":20,"MarginTop":20,"MarginRight":20,"MarginLeft":20, "ListType":"Cart","ItemColumnCount" : 1,"ItemHeight" : 60,"ItemWidth":150, 
+    "BorderColor":"#3B599C", "BorderWidth":2,"RoundWidth":5, "RoundHeight":5,"BackgroundColor":"null"}');
+    memberListView.ListType := 'vertical';
+ end;
+  
+procedure mainListView;
+begin
+  CreateListView;
+  CreateDesignerPanel;
+  CreateMembersNameAndDate;
+  AddDataToListview;
+end;
+procedure mainScreen;
+begin
+  refreshLyt := MyForm.AddNewLayout(mainPnl,'refreshLyt');
+  refreshLyt.Align:=ALTop;
+  refreshLyt.Height := 40;
+  refreshLyt.Margins.Top := 2;
+  
+  refreshBtn := MyForm.AddNewProButton(refreshLyt,'refreshBtn','');
+  clComponent.SetupComponent(refreshBtn,'{"Align" : "Center","Height":'+IntToStr(refreshLyt.Height)+',"Width" :'+IntToStr(refreshLyt.Width)+'}');
+  MyForm.SetImage(refreshBtn,'https://clomosy.com/educa/refresh.png'); 
+  MyForm.AddNewEvent(refreshBtn,tbeOnClick,'AddDataToListview');
+  
+  mainListView;
+end;
+  
 begin
   if Clomosy.PlatformIsMobile then
-      QrAppType := 2;//0:qrgenerator 1:Yonetici 2:Normal User
+    QrAppType := 2;//0:qrgenerator 1:Yonetici 2:Normal User
   
   if Not Clomosy.PlatformIsMobile then  //win üzeirinde açılı olan kullanıcı members listesini görsün
     QrAppType := 1;//0:qrgenerator 1:Yonetici 2:Normal User
   
   if Clomosy.AppUserProfile = 1 then
      QrAppType:=0;
-     
-  MyForm := TCLForm.Create(Self);
+
+  yoneticiTakip := 0;
+
+  MyForm := TclForm.Create(Self);
   MyForm.SetFormBGImage('https://clomosy.com/demos/bg4.jpg');
   GetTimer := MyForm.AddNewTimer(MyForm,'GetTimer',1000);
   
@@ -99,25 +348,34 @@ begin
   clComponent.SetupComponent(mainPnl,'{"Align" : "Client","BackgroundColor":"null"}');
     
   CaptionLbl := MyForm.AddNewProLabel(mainPnl,'CaptionLbl','QR PDKS UYGULAMASI');
-  clComponent.SetupComponent(CaptionLbl,'{"Align" : "MostTop","MarginTop":30,
+  clComponent.SetupComponent(CaptionLbl,'{"Align" : "MostTop","MarginTop":30,"Height":40,
   "TextColor":"#3B599C","TextSize":30,"TextVerticalAlign":"center","TextHorizontalAlign":"center","TextBold":"yes","AutoSize":"Horizontal"}');
- 
+  
+  BtnReadQrCode := MyForm.AddNewProButton(mainPnl,'BtnReadQrCode','');
+  clComponent.SetupComponent(BtnReadQrCode,'{"caption":"QRKod Oku","Align" : "Bottom","MarginLeft" :'+IntToStr(mainPnl.Width/4)+',"MarginRight" :'+IntToStr(mainPnl.Width/4)+',
+  "MarginBottom":20,"TextColor":"#3B599C","TextSize":25,
+  "Height":70,"BackgroundColor":"#d1daf0","RoundHeight":15,"RoundWidth":15,"BorderColor":"#3B599C","BorderWidth":3}');
+  MyForm.AddNewEvent(BtnReadQrCode,tbeOnClick,'BtnReadQrCodeClick');
+  BtnReadQrCode.Visible := False;
+  
+  ReadQrEdt := MyForm.AddNewEdit(mainPnl,'ReadQrEdt','Barkod Okutunuz...');
+  ReadQrEdt.Align := alBottom;
+  ReadQrEdt.ReadOnly := True;
+  ReadQrEdt.Visible := False;
  
   if QrAppType = 0 then//QRGenerator ise
   begin
     adminScreen;
   end;
-  
   if QrAppType = 1 then  //WINDOWS
-  begin
-    Clomosy.OpenForm(ftMembers,fdtsingle,froReadOnly, ffoNoFilter);
-    Exit;
-  end;
-  
+    mainScreen;
+    
   if QrAppType = 2 then//QRReader ise Normal User
   begin
     usersScrenn;
   end;
-  
+  if Clomosy.PlatformIsMobile then
   MyForm.Run;
+  else
+  MyForm.RunModal;
 end;
